@@ -249,6 +249,13 @@ function generateConsolidatedSummary(allContent, query, sourceReferences) {
   // Skapa en personlig och pedagogisk inledning
   let summary = introduction + detailedSummary;
   
+  // Kontrollera om SÄKB nämns i källorna och lägg till en varning om det
+  const hasSAKB = sourceReferences.some(ref => ref.source.includes('SÄKB'));
+  if (hasSAKB) {
+    // Lägg till en tydlig varning om att SÄKB-regler endast gäller på skjutbanan
+    summary += '\n\n**VIKTIGT:** Regler från SÄKB (Säkerhetsbestämmelser för civilt skytte) gäller ENDAST på skjutbanan och under tävling/träning. För transport av vapen till och från skjutbanan gäller istället Vapenlagen och Vapenförordningen. Att följa SÄKB-regler vid transport (t.ex. bära vapen i hölster) kan leda till lagbrott med allvarliga konsekvenser.';
+  }
+  
   // Lägg till en avslutande mening med källhänvisning
   if (sourceReferences.length === 1) {
     summary += `\n\nDenna information kommer från ${sourceReferences[0].source}.`;
