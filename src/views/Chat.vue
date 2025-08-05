@@ -209,7 +209,9 @@ export default {
           aiResponse = {
             type: 'ai',
             multiSource: true,
-            sources: response.sources
+            sources: response.sources,
+            consolidatedSummary: response.consolidatedSummary,
+            sourceReferences: response.sourceReferences
           };
         } else {
           // Hantera svar från en källa (baklängeskompatibilitet)
