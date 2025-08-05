@@ -16,6 +16,8 @@ import { searchSources } from './aiDataIntegrationService';
  */
 export async function getAIResponse(query) {
   try {
+    console.log('AI-chat: Bearbetar fråga:', query);
+    
     // Simulerar nätverksfördröjning för att ge en mer realistisk upplevelse
     await new Promise(resolve => setTimeout(resolve, 1500));
     
@@ -24,8 +26,11 @@ export async function getAIResponse(query) {
     
     // Om inga relevanta sektioner hittades, returnera ett standardsvar
     if (!relevantSections || relevantSections.length === 0) {
+      console.log('AI-chat: Inga relevanta sektioner hittades');
       return getDefaultResponse();
     }
+    
+    console.log('AI-chat: Hittade', relevantSections.length, 'relevanta sektioner');
     
     // Gruppera sektioner efter källa och filtrera bort irrelevanta källor
     const sectionsBySource = groupSectionsBySource(relevantSections);
@@ -80,7 +85,7 @@ export async function getAIResponse(query) {
     };
   } catch (error) {
     console.error('Fel vid generering av AI-svar:', error);
-    return getErrorResponse();
+    return getErrorResponse(error);
   }
 }
 
@@ -113,11 +118,23 @@ function groupSectionsBySource(sections) {
 function filterRelevantSources(sectionsBySource, query) {
   const filteredSources = {};
   
-  // Använd vår nya taxonomibaserade nyckelordsextrahering
-  const queryAnalysis = extractKeywords(query.toLowerCase());
-  const queryKeywords = queryAnalysis.keywords;
-  const queryCategories = queryAnalysis.categories;
-  const querySourceWeights = queryAnalysis.sourceWeights;
+  try {
+    console.log('filterRelevantSources: Analyserar fråga:', query);
+    
+    // Använd vår nya taxonomibaserade nyckelordsextrahering
+    const queryAnalysis = extractKeywords(query.toLowerCase());
+    
+    // Säkerställ att vi har rätt struktur från extractKeywords
+    if (!queryAnalysis || typeof queryAnalysis !== 'object') {
+      console.error('filterRelevantSources: Felaktigt returvärde från extractKeywords:', queryAnalysis);
+      // Fallback till enkel nyckelordsextrahering
+      const basicKeywords = query.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+      return Object.fromEntries(Object.entries(sectionsBySource));
+    }
+    
+    const queryKeywords = Array.isArray(queryAnalysis.keywords) ? queryAnalysis.keywords : [];
+    const queryCategories = queryAnalysis.categories || {};
+    const querySourceWeights = queryAnalysis.sourceWeights || {};
   
   // Beräkna relevanspoäng för varje källa
   const sourceScores = {};
@@ -192,6 +209,11 @@ function filterRelevantSources(sectionsBySource, query) {
   console.log('Filtered sources:', Object.keys(filteredSources));
   
   return filteredSources;
+  } catch (error) {
+    console.error('Fel i filterRelevantSources:', error);
+    // Vid fel, returnera alla källor för att undvika att filtrera bort något viktigt
+    return Object.fromEntries(Object.entries(sectionsBySource));
+  }
 }
 
 /**
@@ -267,67 +289,91 @@ const termTaxonomy = {
  * @returns {Object} - Extraherade nyckelord och kategoriinformation
  */
 function extractKeywords(text) {
-  // Ta bort vanliga ord och specialtecken
-  const stopWords = ['och', 'eller', 'men', 'för', 'att', 'det', 'den', 'en', 'ett', 'på', 'i', 'av', 'om', 
-                     'hur', 'vad', 'vilka', 'ska', 'ska', 'kan', 'jag', 'min', 'mina', 'du', 'din', 'dina',
-                     'som', 'med', 'till', 'från', 'har', 'hade', 'skulle', 'vara', 'är', 'var', 'blir',
-                     'blev', 'när', 'då', 'nu', 'sedan', 'efter', 'innan', 'under', 'över', 'genom'];
-  
-  // Extrahera grundläggande nyckelord
-  const basicKeywords = text
-    .toLowerCase()
-    .replace(/[^\w\såäö]/g, '') // Behåll svenska tecken
-    .split(/\s+/)
-    .filter(word => word.length > 2 && !stopWords.includes(word));
-  
-  // Lägg till relaterade termer baserat på taxonomin
-  const relatedTerms = new Set(basicKeywords);
-  const textLower = text.toLowerCase();
-  
-  // Identifiera vilka kategorier frågan tillhör och deras styrka
-  const categoryMatches = {};
-  const sourceWeights = {};
-  
-  // Gå igenom varje kategori i taxonomin
-  Object.keys(termTaxonomy).forEach(category => {
-    const categoryTerms = termTaxonomy[category].terms;
-    let matchCount = 0;
+  try {
+    // Ta bort vanliga ord och specialtecken
+    const stopWords = ['och', 'eller', 'men', 'för', 'att', 'det', 'den', 'en', 'ett', 'på', 'i', 'av', 'om', 
+                       'hur', 'vad', 'vilka', 'ska', 'ska', 'kan', 'jag', 'min', 'mina', 'du', 'din', 'dina',
+                       'som', 'med', 'till', 'från', 'har', 'hade', 'skulle', 'vara', 'är', 'var', 'blir',
+                       'blev', 'när', 'då', 'nu', 'sedan', 'efter', 'innan', 'under', 'över', 'genom'];
     
-    // Räkna hur många termer från denna kategori som finns i frågan
-    categoryTerms.forEach(term => {
-      if (textLower.includes(term)) {
-        matchCount++;
-        relatedTerms.add(term);
-      }
-    });
+    // Säkerställ att text är en sträng
+    const safeText = typeof text === 'string' ? text : String(text || '');
+    const textLower = safeText.toLowerCase();
     
-    // Om vi hittar träffar, lägg till alla relaterade termer för kategorin
-    if (matchCount > 0) {
-      // Lägg till alla termer från denna kategori (med en gräns för att undvika överdrivet många)
-      const maxAdditionalTerms = 5; // Begränsa antalet extra termer som läggs till
-      const additionalTerms = categoryTerms
-        .filter(term => !relatedTerms.has(term))
-        .slice(0, maxAdditionalTerms);
-      
-      additionalTerms.forEach(term => relatedTerms.add(term));
-      
-      // Spara kategoriträffar och deras styrka
-      categoryMatches[category] = matchCount;
-      
-      // Lägg till källviktning baserat på kategori
-      const weights = termTaxonomy[category].sourceWeights;
-      Object.keys(weights).forEach(source => {
-        if (!sourceWeights[source]) sourceWeights[source] = 0;
-        sourceWeights[source] += weights[source] * matchCount;
+    // Extrahera grundläggande nyckelord
+    const basicKeywords = textLower
+      .replace(/[^\w\såäö]/g, '') // Behåll svenska tecken
+      .split(/\s+/)
+      .filter(word => word.length > 2 && !stopWords.includes(word));
+    
+    // Lägg till relaterade termer baserat på taxonomin
+    const relatedTerms = new Set(basicKeywords);
+    
+    // Identifiera vilka kategorier frågan tillhör och deras styrka
+    const categoryMatches = {};
+    const sourceWeights = {};
+    
+    // Säkerställ att termTaxonomy är definierad
+    if (typeof termTaxonomy === 'object' && termTaxonomy !== null) {
+      // Gå igenom varje kategori i taxonomin
+      Object.keys(termTaxonomy).forEach(category => {
+        if (!termTaxonomy[category] || !Array.isArray(termTaxonomy[category].terms)) {
+          console.warn('Ogiltig kategori i taxonomin:', category);
+          return;
+        }
+        
+        const categoryTerms = termTaxonomy[category].terms;
+        let matchCount = 0;
+        
+        // Räkna hur många termer från denna kategori som finns i frågan
+        categoryTerms.forEach(term => {
+          if (textLower.includes(term)) {
+            matchCount++;
+            relatedTerms.add(term);
+          }
+        });
+        
+        // Om vi hittar träffar, lägg till alla relaterade termer för kategorin
+        if (matchCount > 0) {
+          // Lägg till alla termer från denna kategori (med en gräns för att undvika överdrivet många)
+          const maxAdditionalTerms = 5; // Begränsa antalet extra termer som läggs till
+          const additionalTerms = categoryTerms
+            .filter(term => !relatedTerms.has(term))
+            .slice(0, maxAdditionalTerms);
+          
+          additionalTerms.forEach(term => relatedTerms.add(term));
+          
+          // Spara kategoriträffar och deras styrka
+          categoryMatches[category] = matchCount;
+          
+          // Lägg till källviktning baserat på kategori
+          if (termTaxonomy[category].sourceWeights) {
+            const weights = termTaxonomy[category].sourceWeights;
+            Object.keys(weights).forEach(source => {
+              if (!sourceWeights[source]) sourceWeights[source] = 0;
+              sourceWeights[source] += weights[source] * matchCount;
+            });
+          }
+        }
       });
+    } else {
+      console.error('termTaxonomy är inte definierad korrekt');
     }
-  });
-  
-  return {
-    keywords: Array.from(relatedTerms),
-    categories: categoryMatches,
-    sourceWeights: sourceWeights
-  };
+    
+    return {
+      keywords: Array.from(relatedTerms),
+      categories: categoryMatches,
+      sourceWeights: sourceWeights
+    };
+  } catch (error) {
+    console.error('Fel i extractKeywords:', error);
+    // Vid fel, returnera ett standardobjekt för att undvika krascher
+    return {
+      keywords: [],
+      categories: {},
+      sourceWeights: {}
+    };
+  }
 }
 
 /**
@@ -599,14 +645,19 @@ function getDefaultResponse() {
 /**
  * Returnerar ett felmeddelande när något går fel
  * 
+ * @param {Error} [error] - Eventuellt felmeddelande
  * @returns {Object} - Felmeddelande
  */
-function getErrorResponse() {
+function getErrorResponse(error) {
+  if (error) {
+    console.error('AI-chat error:', error);
+  }
+  
   return {
-    originalText: "Ett fel uppstod vid hämtning av information. Vänligen försök igen senare.",
-    summary: "Tyvärr kunde jag inte bearbeta din fråga just nu på grund av ett tekniskt problem. Försök gärna igen om en stund.",
-    source: "Fel vid informationshämtning",
-    sourceUrl: ""
+    originalText: 'Ett fel uppstod vid hämtning av information. Vänligen försök igen senare.',
+    summary: 'Tyvärr kunde jag inte bearbeta din fråga just nu på grund av ett tekniskt problem. Försök gärna igen om en stund.',
+    source: 'Fel vid informationshämtning',
+    sourceUrl: ''
   };
 }
 
