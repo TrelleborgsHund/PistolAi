@@ -113,13 +113,28 @@ function groupSectionsBySource(sections) {
 function filterRelevantSources(sectionsBySource, query) {
   const filteredSources = {};
   const queryKeywords = extractKeywords(query.toLowerCase());
+  const queryLower = query.toLowerCase();
+  
+  // Identifiera frågetyp för att prioritera rätt källa
+  const isAboutStorage = queryLower.includes('förvar') || queryLower.includes('skåp') || 
+                        queryLower.includes('vapenskåp') || queryLower.includes('säkerhetskåp');
+  
+  const isAboutTransport = queryLower.includes('transport') || queryLower.includes('transportera') || 
+                          queryLower.includes('föra') || queryLower.includes('ta med') || 
+                          queryLower.includes('flytta') || queryLower.includes('resa');
+  
+  const isAboutShootingRange = queryLower.includes('skjutbana') || queryLower.includes('skjutfält') || 
+                              queryLower.includes('skytte') || queryLower.includes('tävling');
+  
+  // Beräkna relevanspoäng för varje källa
+  const sourceScores = {};
   
   // Analysera varje källa för relevans
   for (const source in sectionsBySource) {
     const sections = sectionsBySource[source];
     const mostRelevantSection = sections[0]; // Använd den mest relevanta sektionen för bedömning
     
-    // Beräkna relevanspoäng baserat på nyckelord och innehåll
+    // Beräkna grundläggande relevanspoäng baserat på nyckelord och innehåll
     const content = mostRelevantSection.content.toLowerCase();
     const title = mostRelevantSection.title.toLowerCase();
     
@@ -133,6 +148,32 @@ function filterRelevantSources(sectionsBySource, query) {
       }
     });
     
+    // Justera relevanspoäng baserat på frågetyp och källa
+    if (isAboutStorage) {
+      // För frågor om förvaring, prioritera Vapenlag och Vapenförordning
+      if (source.includes('Vapenlag') || source.includes('Vapenförordning')) {
+        relevanceScore += 10;
+      } else if (source.includes('SÄKB')) {
+        // SÄKB är mindre relevant för förvaringsfrågor
+        relevanceScore -= 5;
+      }
+    } else if (isAboutTransport) {
+      // För frågor om transport, prioritera Vapenlag och Vapenförordning
+      if (source.includes('Vapenlag') || source.includes('Vapenförordning')) {
+        relevanceScore += 10;
+      } else if (source.includes('SÄKB')) {
+        // SÄKB är mindre relevant för transportfrågor
+        relevanceScore -= 5;
+      }
+    } else if (isAboutShootingRange) {
+      // För frågor om skjutbanan, prioritera SÄKB
+      if (source.includes('SÄKB')) {
+        relevanceScore += 10;
+      }
+    }
+    
+    sourceScores[source] = relevanceScore;
+    
     // Om relevanspoängen är tillräckligt hög, inkludera källan
     if (relevanceScore >= 2) {
       filteredSources[source] = sections;
@@ -141,9 +182,16 @@ function filterRelevantSources(sectionsBySource, query) {
   
   // Om ingen källa är tillräckligt relevant, använd den mest relevanta källan
   if (Object.keys(filteredSources).length === 0 && Object.keys(sectionsBySource).length > 0) {
-    const bestSource = Object.keys(sectionsBySource)[0];
+    // Hitta källan med högst relevanspoäng
+    const bestSource = Object.keys(sourceScores).reduce((a, b) => sourceScores[a] > sourceScores[b] ? a : b);
     filteredSources[bestSource] = sectionsBySource[bestSource];
   }
+  
+  // Logga för felsökning
+  console.log('Query:', query);
+  console.log('Query keywords:', queryKeywords);
+  console.log('Source scores:', sourceScores);
+  console.log('Filtered sources:', Object.keys(filteredSources));
   
   return filteredSources;
 }
@@ -169,15 +217,29 @@ function extractKeywords(text) {
   const relatedTerms = new Set(basicKeywords);
   const textLower = text.toLowerCase();
   
+  // Förvaringsrelaterade termer
+  if (textLower.includes('förvar') || textLower.includes('skåp') || 
+      textLower.includes('vapenskåp') || textLower.includes('säkerhetskåp') || 
+      textLower.includes('förvara') || textLower.includes('förvaring')) {
+    relatedTerms.add('förvaring');
+    relatedTerms.add('vapenskåp');
+    relatedTerms.add('säkerhetskåp');
+    relatedTerms.add('säker');
+    relatedTerms.add('förvara');
+    relatedTerms.add('vapenlag'); // Viktigt för att prioritera vapenlagen
+    relatedTerms.add('vapenförordning'); // Viktigt för att prioritera vapenförordningen
+  }
+  
   // Transportrelaterade termer
   if (textLower.includes('transport') || textLower.includes('transportera') || 
       textLower.includes('föra') || textLower.includes('ta med') || 
       textLower.includes('flytta') || textLower.includes('resa')) {
     relatedTerms.add('transport');
     relatedTerms.add('transportera');
-    relatedTerms.add('förvaring');
     relatedTerms.add('föra');
     relatedTerms.add('bära');
+    relatedTerms.add('vapenlag'); // Viktigt för att prioritera vapenlagen
+    relatedTerms.add('vapenförordning'); // Viktigt för att prioritera vapenförordningen
   }
   
   // Vapenrelaterade termer
@@ -191,10 +253,11 @@ function extractKeywords(text) {
   
   // Skjutbanerelaterade termer
   if (textLower.includes('skjutbana') || textLower.includes('skjutfält') || 
-      textLower.includes('skjutning')) {
+      textLower.includes('skjutning') || textLower.includes('skytte')) {
     relatedTerms.add('skjutbana');
     relatedTerms.add('skjutning');
     relatedTerms.add('skytte');
+    relatedTerms.add('säkb'); // Viktigt för att prioritera SÄKB
   }
   
   // Licensrelaterade termer
@@ -202,6 +265,7 @@ function extractKeywords(text) {
     relatedTerms.add('licens');
     relatedTerms.add('tillstånd');
     relatedTerms.add('innehavare');
+    relatedTerms.add('vapenlag'); // Viktigt för att prioritera vapenlagen
   }
   
   return Array.from(relatedTerms);
