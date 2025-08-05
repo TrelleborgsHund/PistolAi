@@ -53,6 +53,11 @@ export async function fetchVapenlag() {
       const response = await axios.get(API_SOURCES.VAPENLAG);
       const processedText = response.data.text;
       
+      // Verifiera att svaret kommer från rätt källa
+      if (response.data.source !== 'vapenlag') {
+        console.warn(`Varning: Förväntade source 'vapenlag' men fick '${response.data.source || 'ingen source'}'. Fortsätter ändå.`);
+      }
+      
       // Cacha resultatet
       cachedData.vapenlag = processedText;
       
@@ -114,6 +119,11 @@ export async function fetchVapenforordning() {
       const response = await axios.get(API_SOURCES.VAPENFORORDNING);
       const processedText = response.data.text;
       
+      // Verifiera att svaret kommer från rätt källa
+      if (response.data.source !== 'vapenforordning') {
+        console.warn(`Varning: Förväntade source 'vapenforordning' men fick '${response.data.source || 'ingen source'}'. Fortsätter ändå.`);
+      }
+      
       // Cacha resultatet
       cachedData.vapenforordning = processedText;
       
@@ -172,6 +182,11 @@ export async function fetchSAKB() {
       console.log('Hämtar SÄKB från API...');
       const response = await axios.get(API_SOURCES.SAKB);
       const processedText = response.data.text;
+      
+      // Verifiera att svaret kommer från rätt källa
+      if (response.data.source !== 'sakb') {
+        console.warn(`Varning: Förväntade source 'sakb' men fick '${response.data.source || 'ingen source'}'. Fortsätter ändå.`);
+      }
       
       // Cacha resultatet
       cachedData.sakb = processedText;

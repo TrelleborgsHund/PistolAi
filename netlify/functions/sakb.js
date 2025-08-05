@@ -8,7 +8,7 @@
  * @returns {Object} - HTTP response object
  */
 exports.handler = async function(event, context) {
-  // Lägg till CORS-headers för utveckling
+  // Lägg till CORS-headers för alla miljöer
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type',
@@ -17,6 +17,7 @@ exports.handler = async function(event, context) {
   
   // Hantera preflight OPTIONS-förfrågan
   if (event.httpMethod === 'OPTIONS') {
+    console.log('Hanterar OPTIONS-förfrågan för SÄKB');
     return {
       statusCode: 200,
       headers,
@@ -67,19 +68,24 @@ exports.handler = async function(event, context) {
       6.2 Säkerhetskontrollanten ska kontrollera att alla vapen är plundrade och säkra efter varje skjutlag.
     `;
     
+    console.log('SÄKB data bearbetad framgångsrikt');
+    
     return {
       statusCode: 200,
       headers,
-      body: JSON.stringify({ text: sakbText })
+      body: JSON.stringify({ text: sakbText, source: 'sakb' })
     };
   } catch (error) {
-    console.error('Fel vid hämtning av SÄKB:', error);
+    console.error('Fel vid hämtning av SÄKB:', error.message);
+    console.error('Stack:', error.stack);
     
+    // Returnera ett mer informativt felmeddelande
     return {
       statusCode: 500,
       headers,
       body: JSON.stringify({ 
-        error: 'Kunde inte hämta data från SÄKB',
+        error: `Fel vid hämtning av SÄKB: ${error.message}`,
+        source: 'sakb',
         message: error.message
       })
     };

@@ -18,19 +18,35 @@ let processedData = null;
  */
 export async function prepareData() {
   if (processedData) {
+    console.log('Använder cachad data för AI-integration');
     return processedData;
   }
   
   try {
+    console.log('Förbereder data för AI-integration...');
+    
     // Hämta data från alla källor
+    console.log('Hämtar data från Vapenlag...');
     const vapenlagText = await fetchVapenlag();
+    console.log('Hämtar data från Vapenförordning...');
     const vapenforordningText = await fetchVapenforordning();
+    console.log('Hämtar data från SÄKB...');
     const sakbText = await fetchSAKB();
+    
+    // Logga längden på texterna för att verifiera att de hämtats korrekt
+    console.log(`Vapenlag textlängd: ${vapenlagText ? vapenlagText.length : 0} tecken`);
+    console.log(`Vapenförordning textlängd: ${vapenforordningText ? vapenforordningText.length : 0} tecken`);
+    console.log(`SÄKB textlängd: ${sakbText ? sakbText.length : 0} tecken`);
     
     // Dela upp texten i sektioner för bättre sökning
     const vapenlagSections = splitIntoSections(vapenlagText, 'Vapenlag');
     const vapenforordningSections = splitIntoSections(vapenforordningText, 'Vapenförordning');
     const sakbSections = splitIntoSections(sakbText, 'SÄKB');
+    
+    // Logga antalet sektioner för varje källa
+    console.log(`Vapenlag sektioner: ${vapenlagSections.length}`);
+    console.log(`Vapenförordning sektioner: ${vapenforordningSections.length}`);
+    console.log(`SÄKB sektioner: ${sakbSections.length}`);
     
     // Kombinera alla sektioner till en indexerad datastruktur
     const allSections = [
@@ -38,6 +54,8 @@ export async function prepareData() {
       ...vapenforordningSections,
       ...sakbSections
     ];
+    
+    console.log(`Totalt antal sektioner: ${allSections.length}`);
     
     // Indexera sektionerna för snabbare sökning
     // I en verklig implementation skulle vi använda en mer avancerad indexeringsmetod
@@ -49,6 +67,7 @@ export async function prepareData() {
       index: indexedData
     };
     
+    console.log('Data förberedd och indexerad framgångsrikt');
     return processedData;
   } catch (error) {
     console.error('Fel vid förberedelse av data:', error);
@@ -147,25 +166,43 @@ function getSourceUrl(source) {
  */
 export async function searchSources(query) {
   try {
-    // Förbereda data om det inte redan är gjort
+    console.log(`Söker efter information relaterad till: "${query}"`);
+    
+    // Förbered data om det inte redan är gjort
     const data = await prepareData();
     
     // Extrahera nyckelord från frågan
     const keywords = extractKeywords(query);
+    console.log(`Extraherade nyckelord: ${keywords.join(', ')}`);
     
-    // Hitta relevanta sektioner baserat på nyckelorden
+    // Hitta relevanta sektioner baserat på nyckelord
     const relevantSectionIds = findRelevantSections(keywords, data.index);
+    console.log(`Hittade ${relevantSectionIds.length} potentiellt relevanta sektioner`);
     
     // Hämta de faktiska sektionerna
     const relevantSections = relevantSectionIds.map(id => 
       data.sections.find(section => section.id === id)
-    ).filter(Boolean);
+    ).filter(Boolean); // Filtrera bort eventuella undefined
     
-    // Sortera sektionerna efter relevans (enkel implementation)
-    return rankSectionsByRelevance(relevantSections, keywords);
+    // Rangordna sektionerna efter relevans
+    const rankedSections = rankSectionsByRelevance(relevantSections, keywords);
+    
+    // Logga information om de högst rankade sektionerna
+    if (rankedSections.length > 0) {
+      console.log('Högst rankade sektioner:');
+      rankedSections.slice(0, 3).forEach((section, index) => {
+        console.log(`${index + 1}. Källa: ${section.source}, Titel: ${section.title}`);
+      });
+    } else {
+      console.log('Inga relevanta sektioner hittades');
+    }
+    
+    // Returnera de mest relevanta sektionerna (max 3)
+    return rankedSections.slice(0, 3);
   } catch (error) {
     console.error('Fel vid sökning i källor:', error);
-    throw new Error('Kunde inte söka i datakällorna');
+    console.error('Stack:', error.stack);
+    return [];
   }
 }
 
