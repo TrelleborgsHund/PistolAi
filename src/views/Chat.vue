@@ -51,29 +51,71 @@
             {{ message.text }}
           </div>
           <div v-else-if="message.type === 'ai'" class="ai-message">
-            <div class="summary" v-if="message.summary">
-              <p>{{ message.summary }}</p>
-            </div>
-            <div class="original-text" v-if="message.originalText">
-              <details>
-                <summary>Visa originaltext</summary>
-                <div class="original-content">
-                  <p>{{ message.originalText }}</p>
+            <!-- Visa samlat svar med källhänvisningar längst ner -->
+            <div v-if="message.multiSource && message.sources" class="consolidated-response">
+              <!-- Samlad sammanfattning -->
+              <div class="consolidated-summary">
+                <p v-html="formatText(message.consolidatedSummary)"></p>
+              </div>
+              
+              <!-- Originaltexter från källor -->
+              <div class="original-sources">
+                <details>
+                  <summary>Visa originaltexter från källor</summary>
+                  <div v-for="(source, sourceIndex) in message.sources" :key="sourceIndex" class="source-section">
+                    <h4 class="source-title">{{ source.source }} {{ source.title }}</h4>
+                    <div class="original-content">
+                      <p>{{ source.content }}</p>
+                    </div>
+                  </div>
+                </details>
+              </div>
+              
+              <!-- Källhänvisningar -->
+              <div class="sources-footer">
+                <p class="sources-label">Källor:</p>
+                <div class="source-references">
+                  <div v-for="(ref, refIndex) in message.sourceReferences" :key="refIndex" class="source-reference">
+                    <a :href="ref.sourceUrl" target="_blank" rel="noopener noreferrer" class="source-link">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                        <polyline points="15 3 21 3 21 9"></polyline>
+                        <line x1="10" y1="14" x2="21" y2="3"></line>
+                      </svg>
+                      {{ ref.source }} {{ ref.title }}
+                    </a>
+                  </div>
                 </div>
-              </details>
+                <p class="source-note"><small>Kontrollera alltid källorna för den mest aktuella informationen.</small></p>
+              </div>
             </div>
-            <div class="source" v-if="message.source">
-              <p>
-                <a :href="message.sourceUrl" target="_blank" rel="noopener noreferrer" class="source-link">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-                    <polyline points="15 3 21 3 21 9"></polyline>
-                    <line x1="10" y1="14" x2="21" y2="3"></line>
-                  </svg>
-                  Källa: {{ message.source }}
-                </a>
-                <small>Kontrollera alltid källan för den mest aktuella informationen.</small>
-              </p>
+            
+            <!-- Visa svar från en källa (baklängeskompatibilitet) -->
+            <div v-else>
+              <div class="summary" v-if="message.summary">
+                <p v-html="formatText(message.summary)"></p>
+              </div>
+              <div class="original-text" v-if="message.originalText">
+                <details>
+                  <summary>Visa originaltext</summary>
+                  <div class="original-content">
+                    <p>{{ message.originalText }}</p>
+                  </div>
+                </details>
+              </div>
+              <div class="source" v-if="message.source">
+                <p>
+                  <a :href="message.sourceUrl" target="_blank" rel="noopener noreferrer" class="source-link">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                      <polyline points="15 3 21 3 21 9"></polyline>
+                      <line x1="10" y1="14" x2="21" y2="3"></line>
+                    </svg>
+                    Källa: {{ message.source }}
+                  </a>
+                  <small>Kontrollera alltid källan för den mest aktuella informationen.</small>
+                </p>
+              </div>
             </div>
           </div>
           <div v-else-if="message.type === 'error'" class="error-message">
@@ -128,6 +170,16 @@ export default {
   },
   methods: {
     /**
+     * Formaterar text med radbrytningar för HTML-visning
+     * @param {string} text - Texten att formatera
+     * @returns {string} - Formaterad text med HTML-radbrytningar
+     */
+    formatText(text) {
+      if (!text) return '';
+      return text.replace(/\n/g, '<br>');
+    },
+    
+    /**
      * Hanterar användarens fråga och skickar den till AI-tjänsten
      */
     async sendMessage() {
@@ -150,13 +202,25 @@ export default {
         const response = await queryAIBackend(query);
         
         // Skapa AI-svaret för chatten
-        const aiResponse = {
-          type: 'ai',
-          originalText: response.originalText,
-          summary: response.summary,
-          source: response.source,
-          sourceUrl: response.sourceUrl
-        };
+        let aiResponse;
+        
+        if (response.multiSource && response.sources) {
+          // Hantera svar från flera källor
+          aiResponse = {
+            type: 'ai',
+            multiSource: true,
+            sources: response.sources
+          };
+        } else {
+          // Hantera svar från en källa (baklängeskompatibilitet)
+          aiResponse = {
+            type: 'ai',
+            originalText: response.originalText,
+            summary: response.summary,
+            source: response.source,
+            sourceUrl: response.sourceUrl
+          };
+        }
         
         this.chatHistory.push(aiResponse);
       } catch (error) {
@@ -460,6 +524,72 @@ h1 {
   font-size: 0.85rem;
   border-top: 1px solid #f0f0f0;
   padding-top: 0.75rem;
+}
+
+.consolidated-response {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.consolidated-summary {
+  background-color: rgba(var(--primary-color-rgb), 0.05);
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.consolidated-summary p {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.original-sources {
+  margin: 1rem 0;
+}
+
+.source-section {
+  border-left: 3px solid var(--primary-color);
+  padding-left: 1rem;
+  margin-bottom: 1rem;
+}
+
+.source-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-top: 0;
+  margin-bottom: 0.5rem;
+  color: var(--primary-color);
+}
+
+.sources-footer {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #f0f0f0;
+}
+
+.sources-label {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+  color: #555;
+}
+
+.source-references {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.source-reference {
+  font-size: 0.85rem;
+}
+
+.source-note {
+  margin-top: 0.5rem;
+  font-style: italic;
+  color: #888;
 }
 
 .source-link {

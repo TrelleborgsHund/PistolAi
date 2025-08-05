@@ -187,18 +187,34 @@ export async function searchSources(query) {
     // Rangordna sektionerna efter relevans
     const rankedSections = rankSectionsByRelevance(relevantSections, keywords);
     
-    // Logga information om de högst rankade sektionerna
-    if (rankedSections.length > 0) {
-      console.log('Högst rankade sektioner:');
-      rankedSections.slice(0, 3).forEach((section, index) => {
+    // Gruppera sektioner efter källa
+    const sectionsBySource = {};
+    rankedSections.forEach(section => {
+      if (!sectionsBySource[section.source]) {
+        sectionsBySource[section.source] = [];
+      }
+      sectionsBySource[section.source].push(section);
+    });
+    
+    // Välj de mest relevanta sektionerna från varje källa (max 2 per källa)
+    const topSectionsBySource = [];
+    for (const source in sectionsBySource) {
+      const sourceSections = sectionsBySource[source].slice(0, 2); // Max 2 sektioner per källa
+      topSectionsBySource.push(...sourceSections);
+    }
+    
+    // Logga information om de valda sektionerna
+    if (topSectionsBySource.length > 0) {
+      console.log('Valda sektioner från alla källor:');
+      topSectionsBySource.forEach((section, index) => {
         console.log(`${index + 1}. Källa: ${section.source}, Titel: ${section.title}`);
       });
     } else {
       console.log('Inga relevanta sektioner hittades');
     }
     
-    // Returnera de mest relevanta sektionerna (max 3)
-    return rankedSections.slice(0, 3);
+    // Returnera de mest relevanta sektionerna från varje källa
+    return topSectionsBySource;
   } catch (error) {
     console.error('Fel vid sökning i källor:', error);
     console.error('Stack:', error.stack);
