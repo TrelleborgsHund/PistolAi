@@ -1,0 +1,28 @@
+{
+  "name": "pistolskytte-info-app",
+  "version": "0.1.0",
+  "private": true,
+  "description": "En PWA-app för pistolskytte med AI-chattfunktion",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "serve": "vite preview"
+  },
+  "dependencies": {
+    "langchain": "^0.0.96",
+    "pdf-parse": "^1.1.1",
+    "pinia": "^2.3.1",
+    "vue": "^3.5.18",
+    "vue-router": "^4.5.1",
+    "workbox-window": "^7.0.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^4.6.2",
+    "axios": "^1.11.0",
+    "cheerio": "^1.1.2",
+    "netlify-cli": "^23.1.1",
+    "sass": "^1.66.1",
+    "vite": "^4.5.14",
+    "vite-plugin-pwa": "^0.16.7"
+  }
+}
