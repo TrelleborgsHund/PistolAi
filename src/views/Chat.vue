@@ -12,6 +12,18 @@
       <a href="https://www.skyttesport.se/media/es2ejinw/saekb_2020.pdf" target="_blank" class="source-badge">SÄKB</a>
     </div>
     
+    <div class="chat-controls">
+      <button @click="clearChat" class="clear-chat-btn" title="Rensa chatthistorik">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="3 6 5 6 21 6"></polyline>
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+          <line x1="10" y1="11" x2="10" y2="17"></line>
+          <line x1="14" y1="11" x2="14" y2="17"></line>
+        </svg>
+        Rensa chatt
+      </button>
+    </div>
+    
     <div class="chat-box" ref="chatBox">
       <div v-if="chatHistory.length === 0" class="empty-chat">
         <div class="empty-chat-content">
@@ -702,6 +714,35 @@ textarea:focus {
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
+}
+
+/* Styling för chattkontrollen */
+.chat-controls {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 10px;
+}
+
+.clear-chat-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.clear-chat-btn:hover {
+  background-color: #c82333;
+}
+
+.clear-chat-btn svg {
+  stroke: white;
 }
 
 /* Responsiv design */
