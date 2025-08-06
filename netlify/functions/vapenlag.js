@@ -67,7 +67,7 @@ exports.handler = async function(event, context) {
       body: JSON.stringify({ 
         error: `Fel vid hämtning av Vapenlag: ${error.message}`,
         source: 'vapenlag',
-        error: 'Kunde inte hämta data från Vapenlag',
+        errorType: 'Kunde inte hämta data från Vapenlag',
         message: error.message
       })
     };

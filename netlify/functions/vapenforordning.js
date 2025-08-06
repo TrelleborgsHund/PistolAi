@@ -67,7 +67,7 @@ exports.handler = async function(event, context) {
       body: JSON.stringify({ 
         error: `Fel vid hämtning av Vapenförordning: ${error.message}`,
         source: 'vapenforordning',
-        error: 'Kunde inte hämta data från Vapenförordning',
+        errorType: 'Kunde inte hämta data från Vapenförordning',
         message: error.message
       })
     };
